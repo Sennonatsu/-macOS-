@@ -1,0 +1,51 @@
+name: 木の洞 macOS Universal DMG
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: 构建木の洞 Universal DMG
+    runs-on: macos-14
+    steps:
+      - name: 检出构建包
+        uses: actions/checkout@v4
+      - name: 解压木の洞源码
+        run: |
+          mkdir -p build
+          unzip -q "木の洞-macOS-build-source.zip" -d build
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: build/pnpm-lock.yaml
+      - name: 安装 Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - name: 安装依赖
+        working-directory: build
+        run: pnpm install --frozen-lockfile
+      - name: 构建 Universal DMG
+        working-directory: build
+        run: pnpm desktop:build --target universal-apple-darwin --bundles dmg
+      - name: 整理安装包
+        run: |
+          mkdir -p release
+          dmg_path="$(find build/src-tauri/target/universal-apple-darwin/release/bundle/dmg -name '*.dmg' -print -quit)"
+          test -n "$dmg_path"
+          cp "$dmg_path" "release/木の洞.dmg"
+      - name: 上传安装包
+        uses: actions/upload-artifact@v4
+        with:
+          name: 木の洞-macOS-Universal
+          path: release/木の洞.dmg
+          if-no-files-found: error
